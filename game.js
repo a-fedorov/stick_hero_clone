@@ -239,6 +239,10 @@
             this.currentState = STATE.SCREEN_SCROLL_FINISHED;
           }
 
+          // Check if new platform is on it's position
+          if (this.platforms.length == 3 && this.platforms[2].onPosition) {
+          }
+
           break;
 
         case STATE.SCREEN_SCROLL_FINISHED: 
@@ -342,21 +346,23 @@
       this.distanceMin = p2.xPos - p1.xPos - p1.width + this.stick.width + 1;
       this.distanceMax = this.distanceMin + p2.width;
       
-      // console.log('CALC_DISTANCES');
-      // console.log('distance_min', this.distanceMin); 
-      // console.log('distance_max', this.distanceMax);
-      // console.log('p1_x', p1.xPos, '\t\tp1_width', p1.width);
-      // console.log('p2_x', p2.xPos, '\tp2_width', p2.width);
+      console.log('CALC_DISTANCES');
+      console.log('distance_min', this.distanceMin); 
+      console.log('distance_max', this.distanceMax);
+      console.log('p1_x', p1.xPos, '\t\tp1_width', p1.width);
+      console.log('p2_x', p2.xPos, '\tp2_width', p2.width);
     },
 
     calcMaxHeroDistance: function() {
       var p2 = this.platforms[1];
       if(-this.stick.height > this.distanceMin && -this.stick.height <= this.distanceMax) {
         // go to the end of 2nd platform
-        this.maxHeroDistance = p2.xPos + p2.width - this.hero.width * 2.5 - this.stick.width;
+        // this.maxHeroDistance = p2.xPos + p2.width - this.hero.width * 2.5 - this.stick.width;
+        this.maxHeroDistance = p2.xPos + p2.width - this.hero.width - this.stick.width;
       } else {
         // go to the end of stick
-        this.maxHeroDistance = -this.stick.height + this.hero.xPosStart - this.hero.width / 2;
+        // this.maxHeroDistance = -this.stick.height + this.hero.xPosStart - this.hero.width / 2;
+        this.maxHeroDistance = -this.stick.height + this.hero.xPosStart;
         this.stickNotOnPlatform = true;
       }
 
@@ -369,9 +375,10 @@
       this.platforms.forEach(function(platform) {
         platform.canMove = true;
       })
-      this.hero.moveBack = true;
+      // this.hero.moveBack = true;
       this.hero.canMove = true;
-      this.hero.onPosition = true;
+      this.hero.direction = Hero.config.DIRECTION_BACKWARD;
+      // this.hero.onPosition = true;
       this.stick.canMove = true;
     },
 
@@ -384,8 +391,9 @@
         }
       })
       this.hero.canMove = false;
-      this.hero.moveBack = false;
-      this.hero.onPosition = false;
+      // this.hero.moveBack = false;
+      this.hero.direction = Hero.config.DIRECTION_FORWARD;
+      // this.hero.onPosition = false;
       this.stick.canMove = false;
     },
 
@@ -433,7 +441,7 @@
 
     this.canMove = false;
     this.moveBack = false;
-    this.onPosition = false;
+    // this.onPosition = false;
 
 
     this.init();
@@ -442,6 +450,8 @@
   Hero.config = {
     WIDTH: 20,
     HEIGHT: 20,
+    DIRECTION_FORWARD: 1,
+    DIRECTION_BACKWARD: -1
   }
 
   Hero.config.HALF_WIDTH = Hero.config.WIDTH / 2;
@@ -456,21 +466,15 @@
     },
 
     update: function() { 
-
       if (this.canMove) {
         this.xPos = this.xPos + this.speed * this.direction;
 
-        // console.log('xPos', this.xPos);
-
-        if (this.targetXPos && !this.onPosition && this.xPos >= this.targetXPos) {
-          // console.log('hero is on target', this.xPos, this.xPos + this.speed / 2, this.targetXPos);
-          // this.canMove = false;
+        if (this.targetXPos && this.xPos + this.speed / 2 >= this.targetXPos) {
+          console.log('hero is on target', this.xPos, this.targetXPos);
+          this.canMove = false;
           this.xPos = this.targetXPos;
-          this.onPosition = true;
-          return;
         }
       }
-      this.direction = (this.moveBack) ? -1 : 1;
     },
 
     draw: function(interpolation) {
@@ -510,13 +514,13 @@
 
     this.xPos = xPos || 0;
     this.yPos = 480 - this.config.HEIGHT;
+    this.targetXPos = this.xPos;
 
     this.canMove = false;
     this.onPosition = (onPosition === false) ? false : true;
       
     if (!this.onPosition) {
       this.canMove = true;
-      this.targetXPos = this.xPos;
       this.xPos = Game.config.WIDTH;
       // this.speed = 20;
     }
@@ -547,7 +551,7 @@
          */
 
         if (this.xPos - this.speed / 2 <= this.targetXPos) {
-          // console.log('not on target pos', this.xPos, this.targetXPos);
+          console.log('not on target pos', this.xPos, this.targetXPos);
           this.xPos = this.targetXPos;
           this.onPosition = true;
           this.canMove = false;
