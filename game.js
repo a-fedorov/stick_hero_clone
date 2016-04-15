@@ -4,6 +4,7 @@
   - ImageLoader
   - Разобраться с флагами и последовательностью действий
   - Переделать вычисление расстояний
+  - Синхронизировать движение платформ
  */
 
 
@@ -63,6 +64,7 @@
 
     this.distanceMin = 0;
     this.distanceMax = 0;
+    this.distancePlatformMove = 0;
 
     this.maxHeroDistance = 0;
     this.currentState = STATE.NORMAL;
@@ -77,7 +79,8 @@
 
   Game.config = {
     WIDTH: 320,
-    HEIGHT: 480
+    HEIGHT: 480,
+    MIN_DISTANCE_BETWEEN_PLATFORMS: 40
   }
 
 
@@ -202,13 +205,9 @@
         case STATE.HERO_MOVE_STARTED: 
           // console.log('HERO_MOVE_STARTED', this.maxHeroDistance, this.hero.xPos);
 
-          if (/*this.maxHeroDistance > 0 && */this.hero.xPos >= this.maxHeroDistance) {
+          if (this.hero.xPos >= this.maxHeroDistance) {
             this.currentState = STATE.HERO_MOVE_FINISHED;
           }
-
-
-            // this.currentState = STATE.FAILED;
-
           break;
 
         case STATE.HERO_MOVE_FINISHED: 
@@ -220,6 +219,7 @@
           } else {
             this.currentState = STATE.SCREEN_SCROLL_STARTED;
             this.scrollScreen();
+            this.distancePlatformMove = this.platforms[1].xPos;
           }
 
           break;
@@ -227,11 +227,26 @@
         case STATE.SCREEN_SCROLL_STARTED: 
           // console.log('SCREEN_SCROLL_STARTED');
 
-          if (this.platforms[0].isVisible() === false && this.isNewPlatformCreated === false) {
+          if (this.isNewPlatformCreated === false) {
             this.isNewPlatformCreated = true;
 
             var platformType = this.getPlatformType();
-            this.platforms.push(new Platform(this.canvas, 200, this.images[platformType], false));
+            this.platformNew = new Platform(this.canvas, 0, this.images[platformType], false);
+            this.platforms.push(this.platformNew);
+
+            var distanceToEdge = Game.config.WIDTH - this.platforms[1].xPos - this.platforms[1].width;
+            var platformPosition = this.calcPlatformPosition(this.platforms[1], this.platformNew);
+            this.platformNew.targetXPos = platformPosition;
+            this.platformNew.xPos = Game.config.WIDTH + platformPosition - distanceToEdge - this.platforms[1].width;
+            console.log(this.platformNew.xPos, this.platformNew.targetXPos);
+
+            // Изменить начальную позицию если платформа появляется в пределах видимой области
+            if (this.platformNew.xPos < Game.config.WIDTH) {
+              console.log('<');
+              this.platformNew.xPos = Game.config.WIDTH + this.platformNew.width;
+              this.platformNew.setNewPlatformSpeed(this.distancePlatformMove, this.platformNew.xPos - this.platformNew.targetXPos);
+            }
+
           }
 
           if (this.platforms[1].isOnScreen() === false) {
@@ -239,9 +254,9 @@
             this.currentState = STATE.SCREEN_SCROLL_FINISHED;
           }
 
-          // Check if new platform is on it's position
-          if (this.platforms.length == 3 && this.platforms[2].onPosition) {
-          }
+          // // Check if new platform is on it's position
+          // if (this.platforms.length == 3 && this.platforms[2].onPosition) {
+          // }
 
           break;
 
@@ -273,51 +288,6 @@
           this.hero.canMove = false;
           break;
       }
-
-
-
-/*
-
-      var p1 = this.platforms[0];
-      var p2 = this.platforms[1];
-
-      if (this.stick.isFallCompleted) {
-        this.hero.canMove = true;
-        // console.log(this.hero.xPos);
-      }
-
-      // Check if stick is on a platform
-      if (this.stick.isFallStarted) {
-        // calc max distance hero can walk
-        if(-this.stick.height > this.distanceMin && -this.stick.height <= this.distanceMax) {
-          // go to the end of 2nd platform
-          this.maxHeroDistance = p2.xPos + p2.width - this.hero.width - this.hero.speed * 3;
-          // console.log(this.maxHeroDistance);
-        } else {
-          // go to the end of stick
-          this.maxHeroDistance = -this.stick.height + this.hero.xPosStart - this.hero.width / 2;
-          // console.log(this.maxHeroDistance, -this.stick.height, this.hero.xPosStart, this.hero.xPos);
-        }
-      }
-
-      // Рассчитать условие остановки героя 
-      // Конец платформы или конец палки, если она вне платформы
-      if (this.maxHeroDistance && this.hero.xPos > this.maxHeroDistance && this.isScreenScrolled === false) {
-        this.hero.canMove = false;
-        this.scrollScreen();
-      }
-
-      if (!p2.isOnScreen()) {
-        this.stopScreenScroll();
-      }
-
-      if (!p1.isVisible() && !this.isNewPlatformCreated) {
-        this.isNewPlatformCreated = true;
-        this.platforms.push(new Platform(this.canvas, 160, this.images.platform80, false));
-      }
-*/
-      // if (!this.isScreenScrolled && this.isScreenStopped && ) {
-      // }
     },
 
     render: function(interpolation) {
@@ -336,70 +306,66 @@
     calcDistances: function() {
       var p1 = this.platforms[0];
       var p2 = this.platforms[1];
-
       p1.xPos = Math.floor(p1.xPos);
       p2.xPos = Math.floor(p2.xPos);
-
-
-      // console.log(p1.xPos, p2.xPos);
-      
       this.distanceMin = p2.xPos - p1.xPos - p1.width + this.stick.width + 1;
       this.distanceMax = this.distanceMin + p2.width;
       
-      console.log('CALC_DISTANCES');
-      console.log('distance_min', this.distanceMin); 
-      console.log('distance_max', this.distanceMax);
-      console.log('p1_x', p1.xPos, '\t\tp1_width', p1.width);
-      console.log('p2_x', p2.xPos, '\tp2_width', p2.width);
+      // console.log('CALC_DISTANCES');
+      // console.log('distance_min', this.distanceMin); 
+      // console.log('distance_max', this.distanceMax);
+      // console.log('p1_x', p1.xPos, '\t\tp1_width', p1.width);
+      // console.log('p2_x', p2.xPos, '\tp2_width', p2.width);
     },
 
     calcMaxHeroDistance: function() {
       var p2 = this.platforms[1];
-      if(-this.stick.height > this.distanceMin && -this.stick.height <= this.distanceMax) {
+
+      if (-this.stick.height > this.distanceMin && -this.stick.height <= this.distanceMax) {
         // go to the end of 2nd platform
-        // this.maxHeroDistance = p2.xPos + p2.width - this.hero.width * 2.5 - this.stick.width;
         this.maxHeroDistance = p2.xPos + p2.width - this.hero.width - this.stick.width;
       } else {
         // go to the end of stick
-        // this.maxHeroDistance = -this.stick.height + this.hero.xPosStart - this.hero.width / 2;
         this.maxHeroDistance = -this.stick.height + this.hero.xPosStart;
         this.stickNotOnPlatform = true;
       }
 
-      // console.log('max', this.maxHeroDistance, this.stickNotOnPlatform);
       this.hero.setTargetPosition(this.maxHeroDistance);
     },
 
     scrollScreen: function() {
-      // this.isScreenScrolled = true;
       this.platforms.forEach(function(platform) {
         platform.canMove = true;
       })
-      // this.hero.moveBack = true;
+
       this.hero.canMove = true;
+      this.hero.speed = 24;
       this.hero.direction = Hero.config.DIRECTION_BACKWARD;
-      // this.hero.onPosition = true;
       this.stick.canMove = true;
     },
 
     stopScreenScroll: function() {
-      // this.isScreenScrolled = false;
-      // this.isScreenStopped = true;
       this.platforms.forEach(function(platform) {
         if (platform.onPosition) {
           platform.canMove = false;
         }
       })
+
       this.hero.canMove = false;
-      // this.hero.moveBack = false;
+      this.hero.speed = 10;
       this.hero.direction = Hero.config.DIRECTION_FORWARD;
-      // this.hero.onPosition = false;
       this.stick.canMove = false;
     },
 
     getPlatformType: function() {
       var platformIndex = Math.floor(Math.random() * Platform.config.types.length);
       return 'platform' + Platform.config.types[platformIndex];
+    },
+
+    calcPlatformPosition: function(p1, p2) {
+      var freeSpace = Game.config.WIDTH - p1.width - p2.width - Game.config.MIN_DISTANCE_BETWEEN_PLATFORMS;
+      var x = p1.width + Math.floor(Math.random() * freeSpace) + Game.config.MIN_DISTANCE_BETWEEN_PLATFORMS;
+      return x;
     }
   };
 
@@ -470,7 +436,7 @@
         this.xPos = this.xPos + this.speed * this.direction;
 
         if (this.targetXPos && this.xPos + this.speed / 2 >= this.targetXPos) {
-          console.log('hero is on target', this.xPos, this.targetXPos);
+          // console.log('hero is on target', this.xPos, this.targetXPos);
           this.canMove = false;
           this.xPos = this.targetXPos;
         }
@@ -509,20 +475,19 @@
     this.image = image;
     this.width = this.image.width;
     this.height = this.image.height;
-    this.speed = 10;
+    this.speed = 24;
     this.velocity = 2;
 
     this.xPos = xPos || 0;
     this.yPos = 480 - this.config.HEIGHT;
-    this.targetXPos = this.xPos;
 
     this.canMove = false;
     this.onPosition = (onPosition === false) ? false : true;
       
     if (!this.onPosition) {
       this.canMove = true;
+      this.targetXPos = this.xPos;
       this.xPos = Game.config.WIDTH;
-      // this.speed = 20;
     }
   }
 
@@ -543,23 +508,12 @@
       }
 
       if (!this.onPosition) {
-          // console.log(this.xPos, this.targetXPos);
-          this.canMove = true;
-
-        /**
-         * FIX CALCULATING POSITION FOR NEW PLATFORM 
-         */
+        this.canMove = true;
 
         if (this.xPos - this.speed / 2 <= this.targetXPos) {
-          console.log('not on target pos', this.xPos, this.targetXPos);
-          this.xPos = this.targetXPos;
+          // this.xPos = this.targetXPos;
           this.onPosition = true;
           this.canMove = false;
-          this.speed = 10;
-        } else {
-          // this.speed += this.velocity;
-          // console.log(this.xPos);
-          // this.xPos = this.xPos - this.speed * 1.5;
         }
       }
     },
@@ -579,7 +533,13 @@
     },
 
     isOnScreen: function() {
-      return this.xPos > 0;
+      return this.xPos - this.speed / 2 > 0;
+    },
+
+    setNewPlatformSpeed: function(d1, d2) {
+      var t = d1 / this.speed;
+      this.speed = Math.ceil(d2 / t);
+      console.log(this.speed, d1, d2);
     }
   }
 
@@ -601,8 +561,8 @@
 
     this.xPos = xPos;
     this.yPos = yPos;
-    this.heightIncreaseSpeed = 8;
-    this.speed = 10;
+    this.heightIncreaseSpeed = 10;
+    this.speed = 24;
     this.velocity = 1.04;
     this.angle = 0;
     this.angleDelta = 3;
