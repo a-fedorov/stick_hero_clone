@@ -32,7 +32,8 @@
     HERO_MOVE_STARTED: 5,
     HERO_MOVE_FINISHED: 6,
     SCREEN_SCROLL_STARTED: 7,
-    SCREEN_SCROLL_FINISHED: 8
+    SCREEN_SCROLL_FINISHED: 8,
+    GAME_OVER: 9
   }
 
 
@@ -109,8 +110,10 @@
 
       this.initInput();
 
-      this.platforms.push(new Platform(this.canvas, 0, this.images.platform100));
-      this.platforms.push(new Platform(this.canvas, 200, this.images.platform60));
+      var platform1Type = this.images.platform100;
+      var platform2Type = this.getPlatformType();
+      this.platforms.push(new Platform(this.canvas, 0, platform1Type));
+      this.platforms.push(new Platform(this.canvas, 200, platform2Type));
       
       var p1 = this.platforms[0];
       var heroX = p1.width - this.images.hero.width - this.images.stick.width;
@@ -143,9 +146,11 @@
     },
 
     handleMouseUp: function() {
-      this.stick.isGrowthStarted = false;
-      this.stick.isFallStarted = true;
-      this.currentState = STATE.STICK_FALL_STARTED;
+      if (this.currentState == STATE.STICK_DRAW_STARTED) {
+        this.stick.isGrowthStarted = false;
+        this.stick.isFallStarted = true;
+        this.currentState = STATE.STICK_FALL_STARTED;
+      }
     },
 
     loop: function() {
@@ -175,6 +180,8 @@
       this.platforms.forEach(function(platform) {
         platform.update();
       })
+
+      // console.log('x_pos', this.platforms[1].xPos);
 
 
       switch(this.currentState) {
@@ -215,11 +222,14 @@
           this.hero.canMove = false;
 
           if (this.stickNotOnPlatform) {
+            this.stick.angleDelta = 10;
+            this.hero.speed = 60;
+            this.hero.isFallDown = true;
             this.currentState = STATE.FAILED;
           } else {
-            this.currentState = STATE.SCREEN_SCROLL_STARTED;
             this.scrollScreen();
             this.distancePlatformMove = this.platforms[1].xPos;
+            this.currentState = STATE.SCREEN_SCROLL_STARTED;
           }
 
           break;
@@ -231,14 +241,15 @@
             this.isNewPlatformCreated = true;
 
             var platformType = this.getPlatformType();
-            this.platformNew = new Platform(this.canvas, 0, this.images[platformType], false);
+            this.platformNew = new Platform(this.canvas, 0, platformType, false);
             this.platforms.push(this.platformNew);
 
             var distanceToEdge = Game.config.WIDTH - this.platforms[1].xPos - this.platforms[1].width;
             var platformPosition = this.calcPlatformPosition(this.platforms[1], this.platformNew);
             this.platformNew.targetXPos = platformPosition;
             this.platformNew.xPos = Game.config.WIDTH + platformPosition - distanceToEdge - this.platforms[1].width;
-            console.log(this.platformNew.xPos, this.platformNew.targetXPos);
+            // console.log('x_pos_new', this.platformNew.xPos, platformPosition);
+            // console.log(this.platformNew.xPos, this.platformNew.targetXPos);
 
             // Изменить начальную позицию если платформа появляется в пределах видимой области
             if (this.platformNew.xPos < Game.config.WIDTH) {
@@ -250,6 +261,13 @@
           }
 
           if (this.platforms[1].isOnScreen() === false) {
+            // Platform should be stopped when horizontal positions will be equal to zero
+            var deltaX = this.platforms[1].xPos;
+            // this.platforms[1].xPos = 0;
+            // this.platforms[2].xPos -= deltaX;
+            // this.hero.xPos -= deltaX;
+            console.log('p1_x', this.platforms[1].xPos);
+
             this.stopScreenScroll();
             this.currentState = STATE.SCREEN_SCROLL_FINISHED;
           }
@@ -286,6 +304,24 @@
 
         case STATE.FAILED:
           this.hero.canMove = false;
+          this.stick.isFallCompleted = false;
+          this.stick.isFallStarted = true;
+          this.stick.targetAngle = 180;
+
+          if (this.hero.yPos > Game.config.HEIGHT) {
+            this.hero.isFallDown = false;
+          }
+          
+          if (this.stick.angle >= 180) {
+            this.stick.angle = 180;
+            this.stick.isFinalFallCompleted = true;
+            this.stick.isFallStarted = false;
+            this.currentState = STATE.GAME_OVER;
+          }
+          break;
+
+        case STATE.GAME_OVER:
+          console.log('Game over');
           break;
       }
     },
@@ -311,6 +347,7 @@
       this.distanceMin = p2.xPos - p1.xPos - p1.width + this.stick.width + 1;
       this.distanceMax = this.distanceMin + p2.width;
       
+      // console.log('---------------');
       // console.log('CALC_DISTANCES');
       // console.log('distance_min', this.distanceMin); 
       // console.log('distance_max', this.distanceMax);
@@ -339,7 +376,7 @@
       })
 
       this.hero.canMove = true;
-      this.hero.speed = 24;
+      this.hero.speed = 20;
       this.hero.direction = Hero.config.DIRECTION_BACKWARD;
       this.stick.canMove = true;
     },
@@ -349,6 +386,7 @@
         if (platform.onPosition) {
           platform.canMove = false;
         }
+        // console.log('platform.xPos', platform.xPos);
       })
 
       this.hero.canMove = false;
@@ -359,13 +397,16 @@
 
     getPlatformType: function() {
       var platformIndex = Math.floor(Math.random() * Platform.config.types.length);
-      return 'platform' + Platform.config.types[platformIndex];
+      var textureName = 'platform' + Platform.config.types[platformIndex];
+      return this.images[textureName];
     },
 
     calcPlatformPosition: function(p1, p2) {
       var freeSpace = Game.config.WIDTH - p1.width - p2.width - Game.config.MIN_DISTANCE_BETWEEN_PLATFORMS;
       var x = p1.width + Math.floor(Math.random() * freeSpace) + Game.config.MIN_DISTANCE_BETWEEN_PLATFORMS;
-      return x;
+      // Snap to 10px grid
+      console.log(Math.floor(x / 10) * 10);
+      return Math.floor(x / 10) * 10;
     }
   };
 
@@ -407,6 +448,7 @@
 
     this.canMove = false;
     this.moveBack = false;
+    this.isFallDown = false;
     // this.onPosition = false;
 
 
@@ -441,17 +483,26 @@
           this.xPos = this.targetXPos;
         }
       }
+
+      if (this.isFallDown) {
+        this.yPos = this.yPos + this.speed;
+      }
     },
 
     draw: function(interpolation) {
       var xPos = this.xPos;
+      var yPos = this.yPos;
       var angle = this.angle;
 
       if (this.canMove) {
         var xPos = this.xPos + this.speed * interpolation * this.direction;
       }
+
+      if (this.isFallDown) {
+        var yPos = this.yPos + this.speed * interpolation;
+      }
       
-      this.canvasCtx.drawImage(this.image, xPos, this.yPos, this.config.WIDTH, this.config.HEIGHT);
+      this.canvasCtx.drawImage(this.image, xPos, yPos, this.config.WIDTH, this.config.HEIGHT);
     },
 
     setTargetPosition: function(xPos) {
@@ -475,7 +526,7 @@
     this.image = image;
     this.width = this.image.width;
     this.height = this.image.height;
-    this.speed = 24;
+    this.speed = 20;
     this.velocity = 2;
 
     this.xPos = xPos || 0;
@@ -511,6 +562,7 @@
         this.canMove = true;
 
         if (this.xPos - this.speed / 2 <= this.targetXPos) {
+          console.log('target x_pos', this.targetXPos, this.xPos - this.speed / 2);
           // this.xPos = this.targetXPos;
           this.onPosition = true;
           this.canMove = false;
@@ -533,13 +585,14 @@
     },
 
     isOnScreen: function() {
+      console.log(this.xPos - this.speed / 2);
       return this.xPos - this.speed / 2 > 0;
     },
 
     setNewPlatformSpeed: function(d1, d2) {
       var t = d1 / this.speed;
       this.speed = Math.ceil(d2 / t);
-      console.log(this.speed, d1, d2);
+      // console.log(this.speed, d1, d2);
     }
   }
 
@@ -562,14 +615,17 @@
     this.xPos = xPos;
     this.yPos = yPos;
     this.heightIncreaseSpeed = 10;
-    this.speed = 24;
+    this.speed = 20;
     this.velocity = 1.04;
     this.angle = 0;
     this.angleDelta = 3;
 
+    this.targetAngle = 90;
+
     this.isGrowthStarted = false;
     this.isFallStarted = false;
     this.isFallCompleted = false;
+    this.isFinalFallCompleted = false;
     this.canMove = false;
   }
 
@@ -592,8 +648,8 @@
       if (this.isFallStarted) {
         this.angle += this.angleDelta;
 
-        if (this.angle + this.angleDelta >= 90) {
-          this.angle = 90;
+        if (this.angle + this.angleDelta >= this.targetAngle) {
+          this.angle = this.targetAngle;
           this.isFallCompleted = true;
           this.isFallStarted = false;
         }        
@@ -628,6 +684,8 @@
         this.canvasCtx.restore();
       } else if (this.isFallCompleted) {
         this.canvasCtx.drawImage(this.image, xPos, this.yPos, -height, this.width);
+      } else if (this.isFinalFallCompleted) {
+        this.canvasCtx.drawImage(this.image, xPos, this.yPos, -this.width, -this.height);
       } else {
         this.canvasCtx.drawImage(this.image, xPos, this.yPos, this.width, height);
       }
