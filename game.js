@@ -117,11 +117,14 @@
       
       var p1 = this.platforms[0];
       var heroX = p1.width - this.images.hero.width - this.images.stick.width;
-      var stickX = p1.xPos + p1.width - this.images.stick.width;
+      // var stickX = p1.xPos + p1.width - this.images.stick.width;
+      var stickX = p1.xPos + p1.width - 1;
       var stickY = p1.yPos;
 
       this.hero = new Hero(this.canvas, this.images.hero, heroX);
       this.stick = new Stick(this.canvas, this.images.stick, stickX, stickY);
+
+      this.score = new Score();
 
       this.calcDistances();
 
@@ -175,11 +178,16 @@
     },
 
     update: function() {
+      if (this.currentState == STATE.GAME_OVER) {
+        return;
+      }
+
       this.hero.update();
       this.stick.update();
       this.platforms.forEach(function(platform) {
         platform.update();
       })
+      
 
       // console.log('x_pos', this.platforms[1].xPos);
 
@@ -221,10 +229,10 @@
           // console.log('HERO_MOVE_FINISHED');
           this.hero.canMove = false;
 
-          if (this.stickNotOnPlatform) {
-            this.stick.angleDelta = 10;
-            this.hero.speed = 60;
-            this.hero.isFallDown = true;
+          if (this.stickNotOnPlatform) {            
+            this.hero.fallDown();
+            this.stick.fallDown();
+
             this.currentState = STATE.FAILED;
           } else {
             this.scrollScreen();
@@ -248,12 +256,10 @@
             var platformPosition = this.calcPlatformPosition(this.platforms[1], this.platformNew);
             this.platformNew.targetXPos = platformPosition;
             this.platformNew.xPos = Game.config.WIDTH + platformPosition - distanceToEdge - this.platforms[1].width;
-            // console.log('x_pos_new', this.platformNew.xPos, platformPosition);
-            // console.log(this.platformNew.xPos, this.platformNew.targetXPos);
 
             // Изменить начальную позицию если платформа появляется в пределах видимой области
             if (this.platformNew.xPos < Game.config.WIDTH) {
-              console.log('<');
+              // console.log('<');
               this.platformNew.xPos = Game.config.WIDTH + this.platformNew.width;
               this.platformNew.setNewPlatformSpeed(this.distancePlatformMove, this.platformNew.xPos - this.platformNew.targetXPos);
             }
@@ -266,15 +272,11 @@
             // this.platforms[1].xPos = 0;
             // this.platforms[2].xPos -= deltaX;
             // this.hero.xPos -= deltaX;
-            console.log('p1_x', this.platforms[1].xPos);
+            // console.log('p1_x', this.platforms[1].xPos);
 
             this.stopScreenScroll();
             this.currentState = STATE.SCREEN_SCROLL_FINISHED;
           }
-
-          // // Check if new platform is on it's position
-          // if (this.platforms.length == 3 && this.platforms[2].onPosition) {
-          // }
 
           break;
 
@@ -287,7 +289,8 @@
           
           var p1 = this.platforms[0];
           var p2 = this.platforms[1];
-          var stickX = p1.xPos + p1.width - this.images.stick.width;
+          // var stickX = p1.xPos + p1.width - this.images.stick.width;
+          var stickX = p1.xPos + p1.width - 1;
           var stickY = p1.yPos;
           this.stick = new Stick(this.canvas, this.images.stick, stickX, stickY);
 
@@ -299,25 +302,21 @@
 
           this.calcDistances();
 
+          this.score.update();
+
           this.currentState = STATE.NORMAL;
           break;
 
         case STATE.FAILED:
-          this.hero.canMove = false;
-          this.stick.isFallCompleted = false;
-          this.stick.isFallStarted = true;
-          this.stick.targetAngle = 180;
-
-          if (this.hero.yPos > Game.config.HEIGHT) {
+          // console.log(this.hero.isVisible());
+          if (this.hero.isVisible() === false) {
             this.hero.isFallDown = false;
           }
-          
-          if (this.stick.angle >= 180) {
-            this.stick.angle = 180;
-            this.stick.isFinalFallCompleted = true;
-            this.stick.isFallStarted = false;
+
+          if (this.stick.isFinalFallCompleted) {
             this.currentState = STATE.GAME_OVER;
           }
+          
           break;
 
         case STATE.GAME_OVER:
@@ -405,7 +404,7 @@
       var freeSpace = Game.config.WIDTH - p1.width - p2.width - Game.config.MIN_DISTANCE_BETWEEN_PLATFORMS;
       var x = p1.width + Math.floor(Math.random() * freeSpace) + Game.config.MIN_DISTANCE_BETWEEN_PLATFORMS;
       // Snap to 10px grid
-      console.log(Math.floor(x / 10) * 10);
+      // console.log(Math.floor(x / 10) * 10);
       return Math.floor(x / 10) * 10;
     }
   };
@@ -508,6 +507,16 @@
     setTargetPosition: function(xPos) {
       // console.log('target', xPos);
       this.targetXPos = xPos;
+    },
+
+    fallDown: function() {
+      this.speed = 60;
+      this.canMove = false;
+      this.isFallDown = true;
+    },
+
+    isVisible: function() {
+      return this.yPos < Game.config.HEIGHT;
     }
   }
 
@@ -562,7 +571,7 @@
         this.canMove = true;
 
         if (this.xPos - this.speed / 2 <= this.targetXPos) {
-          console.log('target x_pos', this.targetXPos, this.xPos - this.speed / 2);
+          // console.log('target x_pos', this.targetXPos, this.xPos - this.speed / 2);
           // this.xPos = this.targetXPos;
           this.onPosition = true;
           this.canMove = false;
@@ -585,7 +594,7 @@
     },
 
     isOnScreen: function() {
-      console.log(this.xPos - this.speed / 2);
+      // console.log(this.xPos - this.speed / 2);
       return this.xPos - this.speed / 2 > 0;
     },
 
@@ -640,10 +649,10 @@
     },
 
     update: function () {
+
       if (this.isGrowthStarted) {
         this.height -= this.heightIncreaseSpeed;
       }
-
 
       if (this.isFallStarted) {
         this.angle += this.angleDelta;
@@ -658,6 +667,16 @@
       if (this.canMove) {
         this.xPos -= this.speed;
       }
+
+      if (this.angle >= 180 && this.isFinalFallCompleted === false) {
+        this.angle = 180;
+        this.isFinalFallCompleted = true;
+        this.isFallStarted = false;
+        this.isFallCompleted = false;
+        return;
+      }
+
+
     },
 
     draw: function (interpolation) {
@@ -673,6 +692,7 @@
       }
 
       if (this.isFallStarted && !this.isFallCompleted) {
+        // fall stick down to the platform
         this.angleDelta *= this.velocity;
         this.angle = this.angle + this.angleDelta * interpolation;
 
@@ -682,15 +702,57 @@
         this.canvasCtx.translate(-xPos, -this.yPos);
         this.canvasCtx.drawImage(this.image, xPos, this.yPos, this.width, height);
         this.canvasCtx.restore();
+
       } else if (this.isFallCompleted) {
+        // draw stick horizontally
         this.canvasCtx.drawImage(this.image, xPos, this.yPos, -height, this.width);
+
       } else if (this.isFinalFallCompleted) {
+        // draw stick vertically
         this.canvasCtx.drawImage(this.image, xPos, this.yPos, -this.width, -this.height);
+
       } else {
+        // just draw stick
         this.canvasCtx.drawImage(this.image, xPos, this.yPos, this.width, height);
       }
     },
+
+    fallDown: function() {
+      this.angleDelta = 10;
+      this.targetAngle = 180;
+      this.isFallStarted = true;
+      this.isFallCompleted = false;
+    }
   }
+
+
+
+
+  function Score() {
+    this.value = 0;
+    this.element = document.getElementById('score-value');
+  }
+
+  Score.prototype = {
+    get: function() {
+      return this.value;
+    },
+
+    set: function(value) {
+      this.value = value;
+    },
+
+    update: function() {
+      this.value += 1;
+      this.element.innerText = this.value;
+    },
+
+    reset: function() {
+      this.value = 0;
+      this.element.innerText = this.value;
+    }
+  }
+
   
 
 })();
