@@ -1,34 +1,165 @@
-body {
-    margin: 0;
-    padding: 0;
-    font-family: Helvetica, serif;
+* {
+  box-sizing: border-box;
 }
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Helvetica, serif;
+}
+
+p { 
+  margin: 0; 
+}
+
+
+
 
 .game {
-    position: relative;
-    width: 320px;
-    height: 480px;
-    background-color: #ddd;
+  position: relative;
+  width: 320px;
+  height: 480px;
+  background-color: #ddd;
 }
 
-.score {
-    position: absolute;
-    top: 10px;
-    left: 0;
-    right: 0;
-    display: block;
-    width: 80px;
-    height: 40px;
-    margin: 0 auto;
-    border-radius: 8px;
-    background-color: rgba(0,0,0,.4);
+
+
+
+/**
+ * Screens
+ * 
+ * 1) Active screen displaying on top of screen's stack
+ * 2) Game-screen still visible when game-over-screen is shown
+ */
+
+.screen {
+  position: absolute;
+  visibility: hidden;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity .5s ease-out;
 }
 
-.score__value {
-    display: inline-block;
-    width: 100%;
-    text-align: center;
-    font-size: 2em;
-    line-height: 1.25;
-    color: white;
+.screen.screen_active {
+  visibility: visible;
+  z-index: 1;
+  opacity: 1;
+  transition: opacity .5s ease-in;
+}
+
+.screen.screen_visible {
+  visibility: visible;
+  opacity: 1;
+}
+
+
+
+
+/**
+ * Game screen
+ */
+
+.screen-game {
+
+}
+
+.sg-score {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  display: block;
+  width: 80px;
+  height: 40px;
+  margin: 0 auto;
+  border-radius: 6px;
+  background-color: rgba(0,0,0,.4);
+
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sg-score-value {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  font-size: 2em;
+  line-height: 1.25;
+  color: white;
+  cursor: default;
+}
+
+
+
+
+/**
+ * Game over screen
+ */
+
+.screen-game-over {
+  background-color: rgba(0,0,0,.7);
+  text-align: center;
+}
+
+.sgo-label {
+  margin-top: 50px;
+  color: #fff;
+  font-size: 30px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.sgo-score-panel {
+  padding: 10px 20px;
+  width: 60%;
+  margin: 15px auto 0;
+  background-color: #fff;
+  border-radius: 8px;
+}
+
+.sgo-score-best {
+  margin-top: 10px;
+}
+
+.sgo-score-label {
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.sgo-score-value {
+  font-size: 24px;
+}
+
+
+
+
+.btn {
+  display: inline-block;
+  padding: 10px 24px;
+  text-transform: uppercase;
+  font-size: 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-restart {
+  margin-top: 40px;
+  color: #fff;
+  background-color: #ef5350;
+  transition: background-color .25s ease-in;
+}
+.btn-restart:hover {
+  background-color: #e53935; 
+}
+
+
+
+/**
+ * Utility classes
+ */
+
+.u-hidden {
+  visibility: hidden;
 }

@@ -34,6 +34,13 @@
     SCREEN_SCROLL_STARTED: 7,
     SCREEN_SCROLL_FINISHED: 8,
     GAME_OVER: 9
+  };
+
+  var SCREEN = {
+    PRELOAD: 0,
+    MENU: 1,
+    GAME: 2,
+    GAME_OVER: 3
   }
 
 
@@ -61,27 +68,29 @@
     this.hero = null;
     this.platforms = [];
 
-    this.loadImages();
-
     this.distanceMin = 0;
     this.distanceMax = 0;
     this.distancePlatformMove = 0;
-
     this.maxHeroDistance = 0;
+
     this.currentState = STATE.NORMAL;
+    this.currentScreen = new Screen('preload');
 
     this.isScreenScrolled = false;
     this.isScreenStopped = false;
     this.isNewPlatformCreated = false;
     this.stickNotOnPlatform = false;
     // this.loop();
+    
+    this.loadImages();
   }
 
 
   Game.config = {
     WIDTH: 320,
     HEIGHT: 480,
-    MIN_DISTANCE_BETWEEN_PLATFORMS: 40
+    MIN_DISTANCE_BETWEEN_PLATFORMS: 40,
+    MOVE_SPEED: 30,
   }
 
 
@@ -109,36 +118,23 @@
       this.canvasCtx = this.canvas.getContext('2d');
 
       this.initInput();
+      this.initObjects();
 
-      var platform1Type = this.images.platform100;
-      var platform2Type = this.getPlatformType();
-      this.platforms.push(new Platform(this.canvas, 0, platform1Type));
-      this.platforms.push(new Platform(this.canvas, 200, platform2Type));
-      
-      var p1 = this.platforms[0];
-      var heroX = p1.width - this.images.hero.width - this.images.stick.width;
-      // var stickX = p1.xPos + p1.width - this.images.stick.width;
-      var stickX = p1.xPos + p1.width - 1;
-      var stickY = p1.yPos;
+      // Init game loop
+      next_game_tick = getTimeStamp();
+      this.loop();
 
-      this.hero = new Hero(this.canvas, this.images.hero, heroX);
-      this.stick = new Stick(this.canvas, this.images.stick, stickX, stickY);
-
-      this.score = new Score();
-
-      this.calcDistances();
-
-      // Temp solution until preloader will be created
-      setTimeout(function() {
-        next_game_tick = getTimeStamp();
-        this.loop();
-      }.bind(this), 200);
-
+      // Show game screen
+      this.currentScreen.change('game');
     },
 
     initInput: function() {
       this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this), false);
       this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this), false);
+
+      document.getElementById('btn-restart').addEventListener('click', function() {
+        this.restart();
+      }.bind(this))
     },
 
     handleMouseDown: function() {
@@ -154,6 +150,41 @@
         this.stick.isFallStarted = true;
         this.currentState = STATE.STICK_FALL_STARTED;
       }
+    },
+
+    initObjects: function() {
+      var platform1Type = this.images.platform100;
+      var platform2Type = this.getPlatformType();
+      this.platforms = [];
+      this.platforms.push(new Platform(this.canvas, 0, platform1Type));
+      this.platforms.push(new Platform(this.canvas, 200, platform2Type));
+      
+      var p1 = this.platforms[0];
+      var heroX = p1.width - this.images.hero.width - this.images.stick.width;
+      var stickX = p1.xPos + p1.width - 1;
+      var stickY = p1.yPos;
+
+      this.hero = new Hero(this.canvas, this.images.hero, heroX);
+      this.stick = new Stick(this.canvas, this.images.stick, stickX, stickY);
+      this.score = new Score();
+
+      this.calcDistances();
+    },
+
+    restart: function() {
+      this.initObjects();
+      this.resetFlags();
+      this.score.reset();
+      this.score.show();
+      this.currentScreen.change('game');
+      this.currentState = STATE.NORMAL;
+    },
+
+    resetFlags: function() {
+      this.isScreenScrolled = false;
+      this.isScreenStopped = false;
+      this.isNewPlatformCreated = false;
+      this.stickNotOnPlatform = false;
     },
 
     loop: function() {
@@ -178,9 +209,9 @@
     },
 
     update: function() {
-      if (this.currentState == STATE.GAME_OVER) {
-        return;
-      }
+      // if (this.currentState == STATE.GAME_OVER) {
+      //   return;
+      // }
 
       this.hero.update();
       this.stick.update();
@@ -301,20 +332,23 @@
           this.hero.xPosStart = this.hero.xPos;
 
           this.calcDistances();
-
           this.score.update();
 
           this.currentState = STATE.NORMAL;
           break;
 
         case STATE.FAILED:
-          // console.log(this.hero.isVisible());
           if (this.hero.isVisible() === false) {
             this.hero.isFallDown = false;
           }
 
           if (this.stick.isFinalFallCompleted) {
             this.currentState = STATE.GAME_OVER;
+
+            // Show game over screen
+            this.score.hide();
+            this.currentScreen.change('game-over');
+            this.currentScreen.showFinalScore(this.score.get());
           }
           
           break;
@@ -357,12 +391,12 @@
     calcMaxHeroDistance: function() {
       var p2 = this.platforms[1];
 
-      if (-this.stick.height > this.distanceMin && -this.stick.height <= this.distanceMax) {
+      if (this.stick.height > this.distanceMin && this.stick.height <= this.distanceMax) {
         // go to the end of 2nd platform
         this.maxHeroDistance = p2.xPos + p2.width - this.hero.width - this.stick.width;
       } else {
         // go to the end of stick
-        this.maxHeroDistance = -this.stick.height + this.hero.xPosStart;
+        this.maxHeroDistance = this.stick.height + this.hero.xPosStart;
         this.stickNotOnPlatform = true;
       }
 
@@ -375,7 +409,7 @@
       })
 
       this.hero.canMove = true;
-      this.hero.speed = 20;
+      this.hero.speed = Game.config.MOVE_SPEED;
       this.hero.direction = Hero.config.DIRECTION_BACKWARD;
       this.stick.canMove = true;
     },
@@ -389,7 +423,7 @@
       })
 
       this.hero.canMove = false;
-      this.hero.speed = 10;
+      this.hero.speed = Game.config.MOVE_SPEED / 2;
       this.hero.direction = Hero.config.DIRECTION_FORWARD;
       this.stick.canMove = false;
     },
@@ -438,7 +472,7 @@
     this.xPosStart = xPos;
     this.targetXPos = 0;
 
-    this.speed = 10;
+    this.speed = Game.config.MOVE_SPEED / 2;
     this.interpolation = 0;
     this.direction = 1;
 
@@ -510,7 +544,7 @@
     },
 
     fallDown: function() {
-      this.speed = 60;
+      this.speed = Game.config.MOVE_SPEED * 3;
       this.canMove = false;
       this.isFallDown = true;
     },
@@ -535,7 +569,7 @@
     this.image = image;
     this.width = this.image.width;
     this.height = this.image.height;
-    this.speed = 20;
+    this.speed = Game.config.MOVE_SPEED;
     this.velocity = 2;
 
     this.xPos = xPos || 0;
@@ -619,12 +653,12 @@
     
     this.image = image;
     this.width = this.image.width;
-    this.height = this.image.height * (-1);
+    this.height = this.image.height;
 
     this.xPos = xPos;
     this.yPos = yPos;
-    this.heightIncreaseSpeed = 10;
-    this.speed = 20;
+    this.heightIncreaseSpeed = 12;
+    this.speed = Game.config.MOVE_SPEED;
     this.velocity = 1.04;
     this.angle = 0;
     this.angleDelta = 3;
@@ -651,7 +685,7 @@
     update: function () {
 
       if (this.isGrowthStarted) {
-        this.height -= this.heightIncreaseSpeed;
+        this.height += this.heightIncreaseSpeed;
       }
 
       if (this.isFallStarted) {
@@ -688,7 +722,7 @@
       }
 
       if (this.isGrowthStarted) {
-        height = this.height - this.heightIncreaseSpeed * interpolation;
+        height = this.height + this.heightIncreaseSpeed * interpolation;
       }
 
       if (this.isFallStarted && !this.isFallCompleted) {
@@ -700,20 +734,22 @@
         this.canvasCtx.translate(xPos, this.yPos);
         this.canvasCtx.rotate(this.angle * Math.PI / 180);
         this.canvasCtx.translate(-xPos, -this.yPos);
-        this.canvasCtx.drawImage(this.image, xPos, this.yPos, this.width, height);
+        // this.canvasCtx.drawImage(this.image, xPos, this.yPos, this.width, height);
+        this.canvasCtx.drawImage(this.image, 0, 0, this.config.WIDTH, this.config.HEIGHT, xPos, this.yPos, this.width, -height);
         this.canvasCtx.restore();
 
       } else if (this.isFallCompleted) {
         // draw stick horizontally
-        this.canvasCtx.drawImage(this.image, xPos, this.yPos, -height, this.width);
+        this.canvasCtx.drawImage(this.image, xPos, this.yPos, height, this.width);
 
       } else if (this.isFinalFallCompleted) {
         // draw stick vertically
-        this.canvasCtx.drawImage(this.image, xPos, this.yPos, -this.width, -this.height);
+        // this.canvasCtx.drawImage(this.image, xPos, this.yPos, -this.width, -height);
+        this.canvasCtx.drawImage(this.image, 0, 0, this.config.WIDTH, this.config.HEIGHT, xPos, this.yPos, -this.width, height);
 
       } else {
         // just draw stick
-        this.canvasCtx.drawImage(this.image, xPos, this.yPos, this.width, height);
+        this.canvasCtx.drawImage(this.image, 0, 0, this.config.WIDTH, this.config.HEIGHT, xPos, this.yPos, this.width, -height);
       }
     },
 
@@ -730,7 +766,8 @@
 
   function Score() {
     this.value = 0;
-    this.element = document.getElementById('score-value');
+    this.element = document.getElementById('sg-score-value');
+    this.parentElement = this.element.parentNode;
   }
 
   Score.prototype = {
@@ -750,6 +787,54 @@
     reset: function() {
       this.value = 0;
       this.element.innerText = this.value;
+    },
+
+    show: function() {
+      this.parentElement.classList.remove('u-hidden'); 
+    },
+
+    hide: function() {
+      this.parentElement.classList.add('u-hidden');
+    }
+  }
+
+
+
+
+  function Screen(name) {
+    this.parentElement = document.getElementById('game-area');
+    this.activeClass = 'screen_active';
+    this.change(name);
+  }
+
+  Screen.prototype = {
+    change: function(name) {
+      console.log('change', name);
+      this.selector = 'screen-' + name;
+      this.element = document.getElementById(this.selector);
+      this.toggleActiveClass();
+    },
+
+    toggleActiveClass: function() {
+      var prevScreen = document.getElementsByClassName(this.activeClass)[0];
+      if (prevScreen) {
+        prevScreen.classList.remove(this.activeClass);
+
+        // Game-screen still visible when game-over-screen is shown
+        if (prevScreen.classList.contains('screen-game')) {
+          prevScreen.classList.add('screen_visible');
+        }
+      }
+      this.element.classList.add(this.activeClass);
+    },
+
+    showFinalScore: function(score) {
+      var currentScoreElement = document.getElementById('sgo-score-value');
+      currentScoreElement.innerText = score;
+    },
+
+    showData: function(targetElement, data) {
+      targetElement.innerText = data;
     }
   }
 

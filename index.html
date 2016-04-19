@@ -1,21 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<title>Stick Hero clone</title>
-	
-	<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>Stick Hero clone</title>
+    
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="game-area" class="game">
+    <div id="game-area" class="game">
+        <div id="screen-preload" class="screen screen-preload"></div>
+        <div id="screen-menu" class="screen screen-menu"></div>
+        <div id="screen-options" class="screen screen-options"></div>
+        
+        <div id="screen-game" class="screen screen-game">
+            <canvas id="gameCanvas" width="320" height="480" ></canvas>
 
-  	<canvas id="gameCanvas" width="320" height="480" ></canvas>
+            <div class="sg-score">
+                <span id="sg-score-value" class="sg-score-value">0</span>
+            </div>
+        </div>
+        
+        <div id="screen-game-over" class="screen screen-game-over">
+            <p class="sgo-label">Game over!</p>
 
-    <div class="score">
-      <span id="score-value" class="score__value">0</span>
+            <div class="sgo-score-panel">
+                <div class="sgo-score-current">
+                    <p class="sgo-score-label">Score</p>
+                    <p id="sgo-score-value" class="sgo-score-value">0</p>
+                </div>
+                
+                <div class="sgo-score-best">
+                    <p class="sgo-score-label">Best</p>
+                    <p class="sgo-score-value">100500</p>
+                </div>
+            </div>
+
+            <div id="btn-restart" class="btn btn-restart">Play again</div>
+        </div>
     </div>
-  </div>
 
-	<script src="game.js"></script>
+    <script src="game.js"></script>
 </body>
 </html>
