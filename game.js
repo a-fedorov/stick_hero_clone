@@ -361,7 +361,7 @@
       var p2 = this.platforms[1];
       p1.xPos = Math.floor(p1.xPos);
       p2.xPos = Math.floor(p2.xPos);
-      this.distanceMin = p2.xPos - p1.xPos - p1.width + this.stick.width + 1;
+      this.distanceMin = p2.xPos - p1.xPos - p1.width + 1;
       this.distanceMax = this.distanceMin + p2.width;
       
       // console.log('---------------');
