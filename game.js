@@ -137,17 +137,9 @@
       this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this), false);
       this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this), false);
 
-      document.getElementById('btn-restart').addEventListener('click', function() {
-        this.restart();
-      }.bind(this))
-
-
-      window.addEventListener('blur', function(e) {
-        // console.log('blur', getTimeStamp());
-      });
+      document.getElementById('btn-restart').addEventListener('click', this.restart.bind(this));
 
       window.addEventListener('focus', function(e) {
-        // console.log('focus', getTimeStamp());
         // update tick value when user return to game
         this.next_game_tick = getTimeStamp();
       }.bind(this));
@@ -240,7 +232,6 @@
         case STATE.STICK_DRAW_FINISHED:
           console.log('STICK_DRAW_FINISHED');
           this.currentState = STATE.STICK_FALL_STARTED;
-          console.log(this.stick.height);
           break;
 
         case STATE.STICK_FALL_STARTED:
