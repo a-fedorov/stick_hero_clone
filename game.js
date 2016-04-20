@@ -2,9 +2,12 @@
 
   TODO:
   - ImageLoader
-  - Разобраться с флагами и последовательностью действий
   - Переделать вычисление расстояний
   - Синхронизировать движение платформ
+
+  COMPLETED:
+  - Разобраться с флагами и последовательностью действий
+  - Т.к игра не ставиться на паузу - вычисление интерполяции продолжается даже когда вкладка с игрой не активна
  */
 
 
@@ -16,11 +19,6 @@
   var SKIP_TICKS = 1000 / TICKS_PER_SECOND;
   var MAX_FRAMESKIP = 5;
 
-  var next_game_tick = getTimeStamp();
-  var loops = 0;
-  var interpolation = 0;
-
-  var game_is_running = true;
 
 
   var STATE = {
@@ -36,17 +34,23 @@
     GAME_OVER: 9
   };
 
-  var SCREEN = {
-    PRELOAD: 0,
-    MENU: 1,
-    GAME: 2,
-    GAME_OVER: 3
-  }
+  // var SCREEN = {
+  //   PRELOAD: 0,
+  //   MENU: 1,
+  //   GAME: 2,
+  //   GAME_OVER: 3
+  // }
 
 
 
   function Game() {
     console.log('Game constructor');
+    
+    // Game loop variables
+    this.next_game_tick = getTimeStamp();
+    this.loops = 0;
+    this.interpolation = 0;
+    this.game_is_running = true;
 
     this.canvas = null;
     this.canvasCtx = null;
@@ -91,6 +95,7 @@
     HEIGHT: 480,
     MIN_DISTANCE_BETWEEN_PLATFORMS: 40,
     MOVE_SPEED: 30,
+    MAX_STICK_HEIGHT: 330 // GAME.HEIGHT - PLATFORM.HEIGTH = 480 - 150
   }
 
 
@@ -121,7 +126,7 @@
       this.initObjects();
 
       // Init game loop
-      next_game_tick = getTimeStamp();
+      this.next_game_tick = getTimeStamp();
       this.loop();
 
       // Show game screen
@@ -135,6 +140,17 @@
       document.getElementById('btn-restart').addEventListener('click', function() {
         this.restart();
       }.bind(this))
+
+
+      window.addEventListener('blur', function(e) {
+        // console.log('blur', getTimeStamp());
+      });
+
+      window.addEventListener('focus', function(e) {
+        // console.log('focus', getTimeStamp());
+        // update tick value when user return to game
+        this.next_game_tick = getTimeStamp();
+      }.bind(this));
     },
 
     handleMouseDown: function() {
@@ -148,7 +164,7 @@
       if (this.currentState == STATE.STICK_DRAW_STARTED) {
         this.stick.isGrowthStarted = false;
         this.stick.isFallStarted = true;
-        this.currentState = STATE.STICK_FALL_STARTED;
+        this.currentState = STATE.STICK_DRAW_FINISHED;
       }
     },
 
@@ -188,31 +204,27 @@
     },
 
     loop: function() {
-      if (game_is_running) {
-        loops = 0;
+      if (this.game_is_running) {
+        this.loops = 0;
 
         // Clear canvas
         this.clearCanvas();
 
-        while(getTimeStamp() > next_game_tick && loops < MAX_FRAMESKIP) {
+        while(getTimeStamp() > this.next_game_tick && this.loops < MAX_FRAMESKIP) {
           this.update();
 
-          next_game_tick += SKIP_TICKS;
-          loops++;
+          this.next_game_tick += SKIP_TICKS;
+          this.loops++;
         }
 
-        interpolation = (getTimeStamp() + SKIP_TICKS - next_game_tick) / SKIP_TICKS;
-        this.render(interpolation);
+        this.interpolation = (getTimeStamp() + SKIP_TICKS - this.next_game_tick) / SKIP_TICKS;
+        this.render(this.interpolation);
 
         requestAnimationFrame(this.loop.bind(this));
       }
     },
 
     update: function() {
-      // if (this.currentState == STATE.GAME_OVER) {
-      //   return;
-      // }
-
       this.hero.update();
       this.stick.update();
       this.platforms.forEach(function(platform) {
@@ -220,16 +232,15 @@
       })
       
 
-      // console.log('x_pos', this.platforms[1].xPos);
-
-
       switch(this.currentState) {
         case STATE.STICK_DRAW_STARTED:
           // console.log('STICK_DRAW_STARTED');
           break;
 
         case STATE.STICK_DRAW_FINISHED:
-          // console.log('STICK_DRAW_FINISHED');
+          console.log('STICK_DRAW_FINISHED');
+          this.currentState = STATE.STICK_FALL_STARTED;
+          console.log(this.stick.height);
           break;
 
         case STATE.STICK_FALL_STARTED:
@@ -277,29 +288,12 @@
           // console.log('SCREEN_SCROLL_STARTED');
 
           if (this.isNewPlatformCreated === false) {
-            this.isNewPlatformCreated = true;
-
-            var platformType = this.getPlatformType();
-            this.platformNew = new Platform(this.canvas, 0, platformType, false);
-            this.platforms.push(this.platformNew);
-
-            var distanceToEdge = Game.config.WIDTH - this.platforms[1].xPos - this.platforms[1].width;
-            var platformPosition = this.calcPlatformPosition(this.platforms[1], this.platformNew);
-            this.platformNew.targetXPos = platformPosition;
-            this.platformNew.xPos = Game.config.WIDTH + platformPosition - distanceToEdge - this.platforms[1].width;
-
-            // Изменить начальную позицию если платформа появляется в пределах видимой области
-            if (this.platformNew.xPos < Game.config.WIDTH) {
-              // console.log('<');
-              this.platformNew.xPos = Game.config.WIDTH + this.platformNew.width;
-              this.platformNew.setNewPlatformSpeed(this.distancePlatformMove, this.platformNew.xPos - this.platformNew.targetXPos);
-            }
-
+            this.addNewPlatform();
           }
 
           if (this.platforms[1].isOnScreen() === false) {
             // Platform should be stopped when horizontal positions will be equal to zero
-            var deltaX = this.platforms[1].xPos;
+            // var deltaX = this.platforms[1].xPos;
             // this.platforms[1].xPos = 0;
             // this.platforms[2].xPos -= deltaX;
             // this.hero.xPos -= deltaX;
@@ -320,7 +314,6 @@
           
           var p1 = this.platforms[0];
           var p2 = this.platforms[1];
-          // var stickX = p1.xPos + p1.width - this.images.stick.width;
           var stickX = p1.xPos + p1.width - 1;
           var stickY = p1.yPos;
           this.stick = new Stick(this.canvas, this.images.stick, stickX, stickY);
@@ -395,7 +388,7 @@
         // go to the end of 2nd platform
         this.maxHeroDistance = p2.xPos + p2.width - this.hero.width - this.stick.width;
       } else {
-        // go to the end of stick
+        // go to the end of the stick
         this.maxHeroDistance = this.stick.height + this.hero.xPosStart;
         this.stickNotOnPlatform = true;
       }
@@ -440,6 +433,26 @@
       // Snap to 10px grid
       // console.log(Math.floor(x / 10) * 10);
       return Math.floor(x / 10) * 10;
+    },
+
+    addNewPlatform: function() {
+      this.isNewPlatformCreated = true;
+
+      var platformType = this.getPlatformType();
+      this.platformNew = new Platform(this.canvas, 0, platformType, false);
+      this.platforms.push(this.platformNew);
+
+      var distanceToEdge = Game.config.WIDTH - this.platforms[1].xPos - this.platforms[1].width;
+      var platformPosition = this.calcPlatformPosition(this.platforms[1], this.platformNew);
+      this.platformNew.targetXPos = platformPosition;
+      this.platformNew.xPos = Game.config.WIDTH + platformPosition - distanceToEdge - this.platforms[1].width;
+
+      // Изменить начальную позицию если платформа появляется в пределах видимой области
+      if (this.platformNew.xPos < Game.config.WIDTH) {
+        // console.log('<');
+        this.platformNew.xPos = Game.config.WIDTH + this.platformNew.width;
+        this.platformNew.setNewPlatformSpeed(this.distancePlatformMove, this.platformNew.xPos - this.platformNew.targetXPos);
+      }  
     }
   };
 
@@ -482,8 +495,6 @@
     this.canMove = false;
     this.moveBack = false;
     this.isFallDown = false;
-    // this.onPosition = false;
-
 
     this.init();
   }
@@ -528,18 +539,17 @@
       var angle = this.angle;
 
       if (this.canMove) {
-        var xPos = this.xPos + this.speed * interpolation * this.direction;
+        xPos = this.xPos + this.speed * interpolation * this.direction;
       }
 
       if (this.isFallDown) {
-        var yPos = this.yPos + this.speed * interpolation;
+        yPos = this.yPos + this.speed * interpolation;
       }
       
       this.canvasCtx.drawImage(this.image, xPos, yPos, this.config.WIDTH, this.config.HEIGHT);
     },
 
     setTargetPosition: function(xPos) {
-      // console.log('target', xPos);
       this.targetXPos = xPos;
     },
 
@@ -683,9 +693,12 @@
     },
 
     update: function () {
-
       if (this.isGrowthStarted) {
         this.height += this.heightIncreaseSpeed;
+        
+        if (this.height > Game.config.MAX_STICK_HEIGHT) {
+          this.height = Game.config.MAX_STICK_HEIGHT
+        }
       }
 
       if (this.isFallStarted) {
@@ -709,8 +722,6 @@
         this.isFallCompleted = false;
         return;
       }
-
-
     },
 
     draw: function (interpolation) {
@@ -723,10 +734,11 @@
 
       if (this.isGrowthStarted) {
         height = this.height + this.heightIncreaseSpeed * interpolation;
+        // console.log('height interpolation', height);
       }
 
       if (this.isFallStarted && !this.isFallCompleted) {
-        // fall stick down to the platform
+        // draw falling stick
         this.angleDelta *= this.velocity;
         this.angle = this.angle + this.angleDelta * interpolation;
 
@@ -734,7 +746,6 @@
         this.canvasCtx.translate(xPos, this.yPos);
         this.canvasCtx.rotate(this.angle * Math.PI / 180);
         this.canvasCtx.translate(-xPos, -this.yPos);
-        // this.canvasCtx.drawImage(this.image, xPos, this.yPos, this.width, height);
         this.canvasCtx.drawImage(this.image, 0, 0, this.config.WIDTH, this.config.HEIGHT, xPos, this.yPos, this.width, -height);
         this.canvasCtx.restore();
 
@@ -744,7 +755,6 @@
 
       } else if (this.isFinalFallCompleted) {
         // draw stick vertically
-        // this.canvasCtx.drawImage(this.image, xPos, this.yPos, -this.width, -height);
         this.canvasCtx.drawImage(this.image, 0, 0, this.config.WIDTH, this.config.HEIGHT, xPos, this.yPos, -this.width, height);
 
       } else {
