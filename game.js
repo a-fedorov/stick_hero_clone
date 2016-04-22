@@ -1,11 +1,11 @@
 /**
 
   TODO:
-  - ImageLoader
   - Переделать вычисление расстояний
   - Синхронизировать движение платформ
 
   COMPLETED:
+  - ImageLoader
   - Разобраться с флагами и последовательностью действий
   - Т.к игра не ставиться на паузу - вычисление интерполяции продолжается даже когда вкладка с игрой не активна
  */
@@ -47,10 +47,10 @@
     console.log('Game constructor');
     
     // Game loop variables
-    this.next_game_tick = getTimeStamp();
     this.loops = 0;
     this.interpolation = 0;
-    this.game_is_running = true;
+    this.nextGameTick = getTimeStamp();
+    this.gameIsRunning = true;
 
     this.canvas = null;
     this.canvasCtx = null;
@@ -93,9 +93,9 @@
   Game.config = {
     WIDTH: 320,
     HEIGHT: 480,
-    MIN_DISTANCE_BETWEEN_PLATFORMS: 40,
-    MOVE_SPEED: 30,
-    MAX_STICK_HEIGHT: 330 // GAME.HEIGHT - PLATFORM.HEIGTH = 480 - 150
+    MOVE_SPEED: 25,
+    MAX_STICK_HEIGHT: 330, // GAME.HEIGHT - PLATFORM.HEIGTH = 480 - 150
+    MIN_DISTANCE_BETWEEN_PLATFORMS: 25,
   }
 
 
@@ -126,7 +126,7 @@
       this.initObjects();
 
       // Init game loop
-      this.next_game_tick = getTimeStamp();
+      this.nextGameTick = getTimeStamp();
       this.loop();
 
       // Show game screen
@@ -141,7 +141,7 @@
 
       window.addEventListener('focus', function(e) {
         // update tick value when user return to game
-        this.next_game_tick = getTimeStamp();
+        this.nextGameTick = getTimeStamp();
       }.bind(this));
     },
 
@@ -196,20 +196,19 @@
     },
 
     loop: function() {
-      if (this.game_is_running) {
+      if (this.gameIsRunning) {
         this.loops = 0;
 
-        // Clear canvas
         this.clearCanvas();
 
-        while(getTimeStamp() > this.next_game_tick && this.loops < MAX_FRAMESKIP) {
+        while(getTimeStamp() > this.nextGameTick && this.loops < MAX_FRAMESKIP) {
           this.update();
 
-          this.next_game_tick += SKIP_TICKS;
+          this.nextGameTick += SKIP_TICKS;
           this.loops++;
         }
 
-        this.interpolation = (getTimeStamp() + SKIP_TICKS - this.next_game_tick) / SKIP_TICKS;
+        this.interpolation = (getTimeStamp() + SKIP_TICKS - this.nextGameTick) / SKIP_TICKS;
         this.render(this.interpolation);
 
         requestAnimationFrame(this.loop.bind(this));
@@ -230,7 +229,7 @@
           break;
 
         case STATE.STICK_DRAW_FINISHED:
-          console.log('STICK_DRAW_FINISHED');
+          // console.log('STICK_DRAW_FINISHED');
           this.currentState = STATE.STICK_FALL_STARTED;
           break;
 
@@ -282,14 +281,7 @@
             this.addNewPlatform();
           }
 
-          if (this.platforms[1].isOnScreen() === false) {
-            // Platform should be stopped when horizontal positions will be equal to zero
-            // var deltaX = this.platforms[1].xPos;
-            // this.platforms[1].xPos = 0;
-            // this.platforms[2].xPos -= deltaX;
-            // this.hero.xPos -= deltaX;
-            // console.log('p1_x', this.platforms[1].xPos);
-
+          if (this.platforms[1].stopped) {
             this.stopScreenScroll();
             this.currentState = STATE.SCREEN_SCROLL_FINISHED;
           }
@@ -391,6 +383,7 @@
       this.platforms.forEach(function(platform) {
         platform.canMove = true;
       })
+      this.platforms[0].remove = true;
 
       this.hero.canMove = true;
       this.hero.speed = Game.config.MOVE_SPEED;
@@ -413,37 +406,41 @@
     },
 
     getPlatformType: function() {
-      var platformIndex = Math.floor(Math.random() * Platform.config.types.length);
-      var textureName = 'platform' + Platform.config.types[platformIndex];
+      var platformIndex = Math.floor(Math.random() * Platform.config.TYPES.length);
+      var textureName = 'platform' + Platform.config.TYPES[platformIndex];
       return this.images[textureName];
     },
 
     calcPlatformPosition: function(p1, p2) {
-      var freeSpace = Game.config.WIDTH - p1.width - p2.width - Game.config.MIN_DISTANCE_BETWEEN_PLATFORMS;
-      var x = p1.width + Math.floor(Math.random() * freeSpace) + Game.config.MIN_DISTANCE_BETWEEN_PLATFORMS;
-      // Snap to 10px grid
-      // console.log(Math.floor(x / 10) * 10);
-      return Math.floor(x / 10) * 10;
+      var toEdge = Game.config.WIDTH - this.distancePlatformMove;
+      var freeSpace = Game.config.WIDTH - p1.width - p2.width - toEdge;
+      var x = Math.floor(Math.random() * freeSpace) + toEdge + Game.config.MIN_DISTANCE_BETWEEN_PLATFORMS;
+      
+      // Round value to grid align
+      return this.roundPositionValue(x);
+    },
+
+    roundPositionValue: function(value) {
+      return Math.floor(value / Game.config.MOVE_SPEED) * Game.config.MOVE_SPEED;
     },
 
     addNewPlatform: function() {
       this.isNewPlatformCreated = true;
 
       var platformType = this.getPlatformType();
-      this.platformNew = new Platform(this.canvas, 0, platformType, false);
-      this.platforms.push(this.platformNew);
+      var platformNew = new Platform(this.canvas, 0, platformType, false);
+      this.platforms.push(platformNew);
 
       var distanceToEdge = Game.config.WIDTH - this.platforms[1].xPos - this.platforms[1].width;
-      var platformPosition = this.calcPlatformPosition(this.platforms[1], this.platformNew);
-      this.platformNew.targetXPos = platformPosition;
-      this.platformNew.xPos = Game.config.WIDTH + platformPosition - distanceToEdge - this.platforms[1].width;
+      var platformPosition = this.calcPlatformPosition(this.platforms[1], platformNew);
+      platformNew.targetXPos = platformPosition;
+      platformNew.xPos = platformPosition + this.platforms[1].xPos;
 
       // Изменить начальную позицию если платформа появляется в пределах видимой области
-      if (this.platformNew.xPos < Game.config.WIDTH) {
-        // console.log('<');
-        this.platformNew.xPos = Game.config.WIDTH + this.platformNew.width;
-        this.platformNew.setNewPlatformSpeed(this.distancePlatformMove, this.platformNew.xPos - this.platformNew.targetXPos);
-      }  
+      if (platformNew.xPos < Game.config.WIDTH) {
+        // platformNew.xPos = this.roundPositionValue(Game.config.WIDTH + platformNew.width);
+        // platformNew.setNewPlatformSpeed(this.distancePlatformMove, platformNew.xPos - platformNew.targetXPos);
+      }
     }
   };
 
@@ -502,7 +499,7 @@
 
   Hero.prototype = {
     init: function() {
-      console.log('init hero');
+      // console.log('init hero');
 
       this.draw(this.interpolation);
       this.update();
@@ -570,12 +567,15 @@
     this.image = image;
     this.width = this.image.width;
     this.height = this.image.height;
+
     this.speed = Game.config.MOVE_SPEED;
     this.velocity = 2;
+    this.distance = 0;
 
     this.xPos = xPos || 0;
     this.yPos = 480 - this.config.HEIGHT;
 
+    this.remove = false;
     this.canMove = false;
     this.onPosition = (onPosition === false) ? false : true;
       
@@ -589,7 +589,7 @@
   Platform.config = {
     WIDTH: 80,
     HEIGHT: 150,
-    types: [30, 50, 60, 80, 100]
+    TYPES: [30, 50, 60, 80, 100]
   }
 
   Platform.prototype = {
@@ -600,6 +600,17 @@
     update: function() {
       if (this.canMove) {
         this.xPos = this.xPos - this.speed;
+
+        // Stop platform when x = 0
+        if (!this.remove) {
+          // console.log(this.xPos);
+          if (Math.abs(this.xPos) <= this.speed / 2) {
+            this.stopped = true;
+            // console.log('!', this.xPos, this.speed / 2);
+            // this.xPos = 0;
+          }
+            // console.log('x_pos_current', this.xPos);
+        }
       }
 
       if (!this.onPosition) {
@@ -629,14 +640,14 @@
     },
 
     isOnScreen: function() {
-      // console.log(this.xPos - this.speed / 2);
+      // console.log('isOnScreen', this.xPos - this.speed / 2, this.xPos);
       return this.xPos - this.speed / 2 > 0;
     },
 
     setNewPlatformSpeed: function(d1, d2) {
-      var t = d1 / this.speed;
-      this.speed = Math.ceil(d2 / t);
-      // console.log(this.speed, d1, d2);
+      // var t = d1 / this.speed;
+      // this.speed = d2 / t;
+      // console.log(this.speed, d1, d2, d2 / t);
     }
   }
 

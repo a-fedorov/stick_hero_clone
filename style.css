@@ -6,6 +6,9 @@ body {
   margin: 0;
   padding: 0;
   font-family: Helvetica, serif;
+
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 p { 
@@ -29,7 +32,7 @@ p {
  * Screens
  * 
  * 1) Active screen displaying on top of screen's stack
- * 2) Game-screen still visible when game-over-screen is shown
+ * 2) Game-screen still visible when game-over-screen is appears
  */
 
 .screen {
@@ -59,6 +62,7 @@ p {
 
 /**
  * Game screen
+ * 'sg' prefix for nested elements
  */
 
 .screen-game {
@@ -76,9 +80,6 @@ p {
   margin: 0 auto;
   border-radius: 6px;
   background-color: rgba(0,0,0,.4);
-
-  user-select: none;
-  -webkit-user-select: none;
 }
 
 .sg-score-value {
@@ -95,7 +96,8 @@ p {
 
 
 /**
- * Game over screen
+ * Game over screen - sgo prefix
+ * 'sgo' prefix for nested elements
  */
 
 .screen-game-over {
