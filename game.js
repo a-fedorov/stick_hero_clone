@@ -63,6 +63,8 @@
     this.loadImages();
   }
 
+  window['Game'] = Game;
+
 
   Game.config = {
     WIDTH: 320,
@@ -134,16 +136,18 @@
     initObjects: function() {
       var platform1Type = this.images.platform100;
       var platform2Type = this.getPlatformType();
+
       this.platforms = [];
       this.platforms.push(new Platform(this.canvas, 0, platform1Type));
       this.platforms.push(new Platform(this.canvas, 200, platform2Type));
       
       var p1 = this.platforms[0];
       var heroX = p1.width - this.images.hero.width - this.images.stick.width;
+      var heroY = Game.config.HEIGHT - p1.height - this.images.hero.height;
       var stickX = p1.xPos + p1.width - 1;
       var stickY = p1.yPos;
 
-      this.hero = new Hero(this.canvas, this.images.hero, heroX);
+      this.hero = new Hero(this.canvas, this.images.hero, heroX, heroY);
       this.stick = new Stick(this.canvas, this.images.stick, stickX, stickY);
       this.score = new Score();
 
@@ -192,7 +196,6 @@
       this.platforms.forEach(function(platform) {
         platform.update();
       })
-      
 
       switch(this.currentState) {
         case STATE.STICK_DRAW_STARTED:
@@ -261,9 +264,6 @@
           var stickY = p1.yPos;
           this.stick = new Stick(this.canvas, this.images.stick, stickX, stickY);
 
-          // reset speed for 2nd platform
-          p2.speed = p1.speed;
-
           this.hero.onPosition = false;
           this.hero.xPosStart = this.hero.xPos;
 
@@ -279,12 +279,12 @@
           }
 
           if (this.stick.isFinalFallCompleted) {
-            this.currentState = STATE.GAME_OVER;
-
             // Show game over screen
             this.score.hide();
             this.currentScreen.change('game-over');
             this.currentScreen.showFinalScore(this.score.get());
+
+            this.currentState = STATE.GAME_OVER;
           }
           
           break;
@@ -311,8 +311,6 @@
     calcDistances: function() {
       var p1 = this.platforms[0];
       var p2 = this.platforms[1];
-      p1.xPos = Math.floor(p1.xPos);
-      p2.xPos = Math.floor(p2.xPos);
       this.distanceMin = p2.xPos - p1.xPos - p1.width + 1;
       this.distanceMax = this.distanceMin + p2.width;
     },
@@ -383,19 +381,12 @@
       var platformNew = new Platform(this.canvas, 0, platformType, false);
       this.platforms.push(platformNew);
 
-      var distanceToEdge = Game.config.WIDTH - this.platforms[1].xPos - this.platforms[1].width;
-      var platformPosition = this.calcPlatformPosition(this.platforms[1], platformNew);
+      var p2 = this.platforms[1];
+      var platformPosition = this.calcPlatformPosition(p2, platformNew);
       platformNew.targetXPos = platformPosition;
-      platformNew.xPos = platformPosition + this.platforms[1].xPos;
-
-      // Изменить начальную позицию если платформа появляется в пределах видимой области
-      // if (platformNew.xPos < Game.config.WIDTH) {
-        // platformNew.xPos = this.roundPositionValue(Game.config.WIDTH + platformNew.width);
-        // platformNew.setNewPlatformSpeed(this.distancePlatformMove, platformNew.xPos - platformNew.targetXPos);
-      // }
+      platformNew.xPos = platformPosition + p2.xPos;
     }
   };
-
 
 
 
@@ -403,8 +394,6 @@
   function getTimeStamp () {
     return (window.performance && window.performance.now) ? window.performance.now() : new Date().getTime();
   }
-
-  window['Game'] = Game;
 
 
 
@@ -414,14 +403,14 @@
    */
 
   
-  function Hero(canvas, image, xPos) {
+  function Hero(canvas, image, xPos, yPos) {
     this.canvas = canvas;
     this.canvasCtx = canvas.getContext('2d');
     this.config = Hero.config;
     this.image = image;
 
     this.xPos = xPos;
-    this.yPos = 480 - 150 - 20;
+    this.yPos = yPos;
     this.xPosStart = xPos;
     this.targetXPos = 0;
 
@@ -435,8 +424,6 @@
     this.canMove = false;
     this.moveBack = false;
     this.isFallDown = false;
-
-    this.init();
   }
 
   Hero.config = {
@@ -451,8 +438,6 @@
 
   Hero.prototype = {
     init: function() {
-      this.draw(this.interpolation);
-      this.update();
     },
 
     update: function() { 
@@ -543,7 +528,6 @@
 
   Platform.prototype = {
     init: function() {
-      // this.draw();
     },
 
     update: function() {
@@ -584,13 +568,7 @@
 
     isOnScreen: function() {
       return this.xPos - this.speed / 2 > 0;
-    },
-
-    // setNewPlatformSpeed: function(d1, d2) {
-      // var t = d1 / this.speed;
-      // this.speed = d2 / t;
-      // console.log(this.speed, d1, d2, d2 / t);
-    // }
+    }
   }
 
 
