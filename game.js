@@ -1,25 +1,9 @@
-/**
-
-  TODO:
-  - Переделать вычисление расстояний
-  - Синхронизировать движение платформ
-
-  COMPLETED:
-  - ImageLoader
-  - Разобраться с флагами и последовательностью действий
-  - Т.к игра не ставиться на паузу - вычисление интерполяции продолжается даже когда вкладка с игрой не активна
- */
-
-
-
 (function() {
   'use strict';
 
   var TICKS_PER_SECOND = 25;
   var SKIP_TICKS = 1000 / TICKS_PER_SECOND;
   var MAX_FRAMESKIP = 5;
-
-
 
   var STATE = {
     NORMAL: 0,
@@ -34,18 +18,8 @@
     GAME_OVER: 9
   };
 
-  // var SCREEN = {
-  //   PRELOAD: 0,
-  //   MENU: 1,
-  //   GAME: 2,
-  //   GAME_OVER: 3
-  // }
 
-
-
-  function Game() {
-    console.log('Game constructor');
-    
+  function Game() {    
     // Game loop variables
     this.loops = 0;
     this.interpolation = 0;
@@ -109,7 +83,6 @@
         this.images[name].src = this.imagesUrls[name];
         this.images[name].onload = function() {
           if (++imgCount == totalImages) {
-            // console.log('all images were loaded successfully', totalImages, this.images);
             this.init();
           }
         }.bind(this);
@@ -117,8 +90,6 @@
     },
 
     init: function() {
-      console.log('init');
-
       this.canvas = document.getElementById('gameCanvas');
       this.canvasCtx = this.canvas.getContext('2d');
 
@@ -225,16 +196,13 @@
 
       switch(this.currentState) {
         case STATE.STICK_DRAW_STARTED:
-          // console.log('STICK_DRAW_STARTED');
           break;
 
         case STATE.STICK_DRAW_FINISHED:
-          // console.log('STICK_DRAW_FINISHED');
           this.currentState = STATE.STICK_FALL_STARTED;
           break;
 
         case STATE.STICK_FALL_STARTED:
-          // console.log('STICK_FALL_STARTED');
           
           if (this.stick.angle + this.stick.angleDelta >= 90) {
             this.currentState = STATE.STICK_FALL_FINISHED;
@@ -242,23 +210,18 @@
           break;
 
         case STATE.STICK_FALL_FINISHED:
-          // console.log('STICK_FALL_FINISHED');
-
           this.hero.canMove = true;
           this.currentState = STATE.HERO_MOVE_STARTED;
           this.calcMaxHeroDistance();
           break;
 
         case STATE.HERO_MOVE_STARTED: 
-          // console.log('HERO_MOVE_STARTED', this.maxHeroDistance, this.hero.xPos);
-
           if (this.hero.xPos >= this.maxHeroDistance) {
             this.currentState = STATE.HERO_MOVE_FINISHED;
           }
           break;
 
         case STATE.HERO_MOVE_FINISHED: 
-          // console.log('HERO_MOVE_FINISHED');
           this.hero.canMove = false;
 
           if (this.stickNotOnPlatform) {            
@@ -275,8 +238,6 @@
           break;
 
         case STATE.SCREEN_SCROLL_STARTED: 
-          // console.log('SCREEN_SCROLL_STARTED');
-
           if (this.isNewPlatformCreated === false) {
             this.addNewPlatform();
           }
@@ -289,7 +250,6 @@
           break;
 
         case STATE.SCREEN_SCROLL_FINISHED: 
-          // console.log('SCREEN_SCROLL_FINISHED');
           // console.log(this.stick.xPos - this.stick.height); // check if stick still visible
 
           this.isNewPlatformCreated = false;
@@ -355,13 +315,6 @@
       p2.xPos = Math.floor(p2.xPos);
       this.distanceMin = p2.xPos - p1.xPos - p1.width + 1;
       this.distanceMax = this.distanceMin + p2.width;
-      
-      // console.log('---------------');
-      // console.log('CALC_DISTANCES');
-      // console.log('distance_min', this.distanceMin); 
-      // console.log('distance_max', this.distanceMax);
-      // console.log('p1_x', p1.xPos, '\t\tp1_width', p1.width);
-      // console.log('p2_x', p2.xPos, '\tp2_width', p2.width);
     },
 
     calcMaxHeroDistance: function() {
@@ -396,7 +349,6 @@
         if (platform.onPosition) {
           platform.canMove = false;
         }
-        // console.log('platform.xPos', platform.xPos);
       })
 
       this.hero.canMove = false;
@@ -437,10 +389,10 @@
       platformNew.xPos = platformPosition + this.platforms[1].xPos;
 
       // Изменить начальную позицию если платформа появляется в пределах видимой области
-      if (platformNew.xPos < Game.config.WIDTH) {
+      // if (platformNew.xPos < Game.config.WIDTH) {
         // platformNew.xPos = this.roundPositionValue(Game.config.WIDTH + platformNew.width);
         // platformNew.setNewPlatformSpeed(this.distancePlatformMove, platformNew.xPos - platformNew.targetXPos);
-      }
+      // }
     }
   };
 
@@ -499,8 +451,6 @@
 
   Hero.prototype = {
     init: function() {
-      // console.log('init hero');
-
       this.draw(this.interpolation);
       this.update();
     },
@@ -510,7 +460,6 @@
         this.xPos = this.xPos + this.speed * this.direction;
 
         if (this.targetXPos && this.xPos + this.speed / 2 >= this.targetXPos) {
-          // console.log('hero is on target', this.xPos, this.targetXPos);
           this.canMove = false;
           this.xPos = this.targetXPos;
         }
@@ -603,13 +552,9 @@
 
         // Stop platform when x = 0
         if (!this.remove) {
-          // console.log(this.xPos);
           if (Math.abs(this.xPos) <= this.speed / 2) {
             this.stopped = true;
-            // console.log('!', this.xPos, this.speed / 2);
-            // this.xPos = 0;
           }
-            // console.log('x_pos_current', this.xPos);
         }
       }
 
@@ -617,8 +562,6 @@
         this.canMove = true;
 
         if (this.xPos - this.speed / 2 <= this.targetXPos) {
-          // console.log('target x_pos', this.targetXPos, this.xPos - this.speed / 2);
-          // this.xPos = this.targetXPos;
           this.onPosition = true;
           this.canMove = false;
         }
@@ -640,15 +583,14 @@
     },
 
     isOnScreen: function() {
-      // console.log('isOnScreen', this.xPos - this.speed / 2, this.xPos);
       return this.xPos - this.speed / 2 > 0;
     },
 
-    setNewPlatformSpeed: function(d1, d2) {
+    // setNewPlatformSpeed: function(d1, d2) {
       // var t = d1 / this.speed;
       // this.speed = d2 / t;
       // console.log(this.speed, d1, d2, d2 / t);
-    }
+    // }
   }
 
 
@@ -736,7 +678,6 @@
 
       if (this.isGrowthStarted) {
         height = this.height + this.heightIncreaseSpeed * interpolation;
-        // console.log('height interpolation', height);
       }
 
       if (this.isFallStarted && !this.isFallCompleted) {
@@ -821,7 +762,6 @@
 
   Screen.prototype = {
     change: function(name) {
-      console.log('change', name);
       this.selector = 'screen-' + name;
       this.element = document.getElementById(this.selector);
       this.toggleActiveClass();
@@ -849,9 +789,6 @@
       targetElement.innerText = data;
     }
   }
-
-  
-
 })();
 
 var game = new Game();
