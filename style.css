@@ -2,13 +2,24 @@
   box-sizing: border-box;
 }
 
+html,
 body {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   margin: 0;
   padding: 0;
   font-family: Helvetica, serif;
 
   user-select: none;
   -webkit-user-select: none;
+
+  background-color: #777;
 }
 
 p { 
@@ -23,6 +34,7 @@ p {
   width: 320px;
   height: 480px;
   background-color: #ddd;
+  transform: scale(1.2);
 }
 
 
